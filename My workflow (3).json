@@ -1,0 +1,907 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -208,
+        -672
+      ],
+      "id": "c11e9d36-4633-49c7-89a8-a5ccf14595ee",
+      "name": "Loop Over Items",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        -672
+      ],
+      "id": "608de53f-43ae-45a3-85c4-9794b680b688",
+      "name": "Split Out",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "formatDate",
+        "date": "={{ $today }}",
+        "format": "yyyy-MM-dd",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        -672
+      ],
+      "id": "93591ab7-7a68-415c-ae48-6486f63741f4",
+      "name": "Date & Time",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hh.ru/vacancies",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"text\": \"python\",\n  \"only_with_salary\": \"true\",\n  \"search_field\": [\"name\"],\n  \"salary\": 120000,\n  \"currency\": \"RUR\",  \n  \"area\": 1,  \n  \"date_from\": \"{{ $json.formattedDate }}T00:00:00\",\n  \"order_by\": \"publication_time\",\n  \"page\": 0,\n  \"per_page\": 40\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        -672
+      ],
+      "id": "2239ef96-865f-4ceb-b195-273649c2123c",
+      "name": "get_vacansies",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hh.ru/vacancies/{{ $('Loop Over Items').item.json.id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        -640
+      ],
+      "id": "da292994-b194-45b1-8240-724237144264",
+      "name": "get_vac",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8-22/2 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -928,
+        -672
+      ],
+      "id": "7ecb3f77-4c0a-4c6d-94c2-d23cdb382e51",
+      "name": "Schedule Trigger",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) > 0 AS record_exists\nFROM public.Vacancies\nWHERE id = '122538226'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        48,
+        -672
+      ],
+      "id": "ed5d3951-75d4-4fab-ab50-272ddd516803",
+      "name": "postgres_if_exist",
+      "credentials": {
+        "postgres": {
+          "id": "jOUmdUfDT0c1sG1l",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "afe4b6ea-6107-48b3-8415-f8b86d436b80",
+              "leftValue": "={{ $json.record_exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        -672
+      ],
+      "id": "9493b59e-96b8-46d3-93aa-7a8b3b3da422",
+      "name": "if_exist",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "vacancies",
+          "mode": "list",
+          "cachedResultName": "vacancies"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('get_vac').item.json.id }}",
+            "name": "={{ $('get_vac').item.json.name }}",
+            "description": "={{ $('get_vac').item.json.description }}",
+            "alternate_url": "={{ $('get_vac').item.json.alternate_url }}",
+            "employer_id": "={{ $('get_vac').item.json.employer.id }}",
+            "salary_currency": "={{ $('get_vac').item.json.salary?.currency }}",
+            "updated_at": "=2025-07-26T18:45:44",
+            "created_at": "={{ new Date().toISOString() }}",
+            "salary_to": "={{ $('get_vac').item.json.salary?.to }}",
+            "salary_from": "={{ $('get_vac').item.json.salary?.from }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": true,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "alternate_url",
+              "displayName": "alternate_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "employer_id",
+              "displayName": "employer_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary_from",
+              "displayName": "salary_from",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary_to",
+              "displayName": "salary_to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "salary_currency",
+              "displayName": "salary_currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -176,
+        -400
+      ],
+      "id": "575fc537-98c4-4f94-9773-2d866e87485a",
+      "name": "postgres_insert_vac",
+      "credentials": {
+        "postgres": {
+          "id": "jOUmdUfDT0c1sG1l",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "qwen/qwq-32b",
+          "mode": "list",
+          "cachedResultName": "QWEN/QWQ-32B"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Ты — HR‑эксперт и карьерный консультант с 15‑летним опытом IT‑подбора.  \nТвоя задача — решить, подходит ли кандидат под данную вакансию.\n\n---\n\n#### Вход\nПолучаешь один JSON‑объект:\n\n{\n  \"job\": {\n    \"title\": \"{{ $json.title }}\",\n    \"key_skils\": \"{{ $json.key_skills }}\",\n    \"experience\": \"{{ $json.experience }}\",\n    \"description\": {{ $json.description }}\n  },\n  \"candidate\": {\n    \"titles\": [\"Python Developer\", \"Data Analyst\", \"ML Engineer\"],\n    \"core_skills\": [\"Python\", \"Django\", \"FastAPI\", \"PostgreSQL\", \"SQL\", \"Redis\", \"RabbitMQ\", \"Docker\", \"OpenAI SDK\", \"Linux\", \"Git\"],\n    \"libs\": [\"asyncio\", \"pika\", \"pydantic\", \"PyTorch\", \"requests\", \"selenium\", \"SQLAlchemy\", \"ormar\", \"logging\", \"pandas\", \"matplotlib\"],\n    \"experience_years\": {\"Python\":8, \"Django\":6, \"FastAPI\":3},\n    \"soft_skills\": [\"работа в команде\", \"scrum\", \"kanban\"],\n    \"languages\": {\"Russian\":\"native\", \"English\":\"B2\"},\n    \"education\": \"высшее образование, инженер\"\n  }\n}\n\n---\n\n#### Инструкция\n1. Если значение key_skils пустое, заполни его данными из description.\n2. Подумай шаг за шагом о соответствии по title, key_skils и description.  \n3. Не выводи свои рассуждения.  \n4. Верни **только** один JSON‑объект без пробелов и символов перевода строки:\n\n* Если кандидат подходит:\n  Напиши ПОДХОДИТ и кратко, уложись в 600 символов, напиши почему.\n\n* Если не подходит или данных недостаточно  \n  Напиши НЕПОДХОДИТ и кратко, уложись в 600 символов, напиши почему.\n\n---\n\n#### Формат ответа:\n{\"check\":\"ПОДХОДИТ/НЕПОДОХДИТ\",\"reason\":reason}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        64,
+        -400
+      ],
+      "id": "93c3214c-9e53-4f59-8a5e-7fe51de3228b",
+      "name": "open_aI_requests",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "iAAkuvexubI38oo4",
+          "name": "OpenAi account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "chatId": "1846618654",
+        "text": "={{ $('get_vac').item.json.name }}\n\n{{ $json.message.content }}\n\nhttps://hh.ru/vacancy/{{ $('get_vac').item.json.id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        -400
+      ],
+      "id": "892ff9b9-d696-4dac-a0b4-c1176d490729",
+      "name": "telegram_send_message",
+      "webhookId": "542f9469-a840-42cd-a36b-3a460991c3ab",
+      "credentials": {
+        "telegramApi": {
+          "id": "f0vus2aVagjbHrKG",
+          "name": "Telegram account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.employers (id, name) VALUES ('{{ $json.employer.id }}', '{{ $json.employer.name }}') ON CONFLICT (id) DO NOTHING",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1600,
+        -368
+      ],
+      "id": "619c75ab-9f17-4ec0-903a-87abc1871530",
+      "name": "postgres_insert_employer",
+      "credentials": {
+        "postgres": {
+          "id": "jOUmdUfDT0c1sG1l",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": "=1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1568,
+        -528
+      ],
+      "id": "9e476a60-de18-42b1-96f9-bcdb7f0cb0ea",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        -528
+      ],
+      "id": "22072d9e-ea65-4933-9c25-43b352ece0c5",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "operation": "formatDate",
+        "date": "={{ $today }}",
+        "format": "yyyy-MM-dd",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTime",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -528
+      ],
+      "id": "afde0166-b30f-4e3c-b2cf-f64ebf653fb9",
+      "name": "Date & Time1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hh.ru/vacancies",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"text\": \"(n8n OR Python OR C#) AND (удалённо OR удаленно OR remote)\",\n  \"only_with_salary\": \"true\",\n  \"search_field\": [\"name\", \"description\"],\n  \"salary\": 120000,\n  \"currency\": \"RUR\",\n  \"area\": [1, 2, 3, 66, 76, 104],\n  \"date_from\": \"{{ $json.formattedDate }}T00:00:00\",\n  \"order_by\": \"publication_time\",\n  \"page\": 0,\n  \"per_page\": 40,\n  \"schedule\": \"remote\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1216,
+        -528
+      ],
+      "id": "f0279d51-dbab-4d51-a8bd-a569143a55d2",
+      "name": "get_vacansies1"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hh.ru/vacancies/{{ $('Loop Over Items1').item.json.id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2176,
+        -496
+      ],
+      "id": "c6368abe-0b7d-467e-ab20-dee0c73d423b",
+      "name": "get_vac1",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8-22/2 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        -528
+      ],
+      "id": "1bbb8279-e7d4-4462-ba21-d451dcac4629",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) > 0 AS record_exists\nFROM public.Vacancies\nWHERE id = '122538226'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1824,
+        -528
+      ],
+      "id": "00ae4b04-2516-4ef1-95f8-96bb7d998c0e",
+      "name": "postgres_if_exist1",
+      "credentials": {
+        "postgres": {
+          "id": "jOUmdUfDT0c1sG1l",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "afe4b6ea-6107-48b3-8415-f8b86d436b80",
+              "leftValue": "={{ $json.record_exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        -528
+      ],
+      "id": "e843a11b-8a11-4855-bd67-8b2b61bcf69a",
+      "name": "if_exist1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.vacancies \n(id, name, description, alternate_url, employer_id, salary_currency, updated_at, created_at, salary_to, salary_from) \nVALUES \n(\n  '{{ $json.id }}', \n  '{{ $json.name }}', \n  '{{ $json.description }}', \n  '{{ $json.alternate_url }}', \n  '{{ $json.employer.id }}', \n  '{{ $json.salary.currency }}', \n  '{{ new Date().toISOString() }}', \n  '{{ new Date().toISOString() }}', \n  {{ $json.salary.to }}, \n  {{ $json.salary.from }}\n) \nON CONFLICT (id) DO UPDATE SET updated_at = '{{ new Date().toISOString() }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1616,
+        -192
+      ],
+      "id": "12d8406e-0ea6-49cc-9977-195491f96521",
+      "name": "postgres_insert_vac1",
+      "credentials": {
+        "postgres": {
+          "id": "jOUmdUfDT0c1sG1l",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "qwen/qwq-32b",
+          "mode": "list",
+          "cachedResultName": "QWEN/QWQ-32B"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Ты — HR-эксперт и карьерный консультант с 15-летним опытом IT-подбора. Твоя задача — решить, подходит ли кандидат под данную вакансию.\n\n---\n\n#### Вход\nПолучаешь один JSON-объект:\n\n{\n  \"job\": {\n    \"title\": \"{{ $json.name }}\",\n    \"key_skils\": \"{{ $json.key_skills }}\",\n    \"experience\": \"{{ $json.experience }}\",\n    \"description\": \"{{ $json.description }}\"\n  },\n  \"candidate\": {\n    \"titles\": [\"Python Developer\", \"Data Analyst\", \"ML Engineer\"],\n    \"core_skills\": [\"Python\", \"Django\", \"FastAPI\", \"PostgreSQL\", \"SQL\", \"Redis\", \"RabbitMQ\", \"Docker\", \"OpenAI SDK\", \"Linux\", \"Git\"],\n    \"libs\": [\"asyncio\", \"pika\", \"pydantic\", \"PyTorch\", \"requests\", \"selenium\", \"SQLAlchemy\", \"ormar\", \"logging\", \"pandas\", \"matplotlib\"],\n    \"experience_years\": {\"Python\":8, \"Django\":6, \"FastAPI\":3},\n    \"soft_skills\": [\"работа в команде\", \"scrum\", \"kanban\"],\n    \"languages\": {\"Russian\":\"native\", \"English\":\"B2\"},\n    \"education\": \"высшее образование, инженер\"\n  }\n}\n\n---\n\n#### Инструкция\n1. Если значение key_skils пустое, заполни его данными из description.\n2. Подумай шаг за шагом о соответствии по title, key_skils и description.\n3. Не выводи свои рассуждения.\n4. Верни только один JSON-объект без пробелов и символов перевода строки:\n\n* Если кандидат подходит:\n  Напиши ПОДХОДИТ и кратко, уложись в 600 символов, напиши почему.\n\n* Если не подходит или данных недостаточно\n  Напиши НЕПОДХОДИТ и кратко, уложись в 600 символов, напиши почему.\n\n---\n\n#### Формат ответа:\n{\"check\":\"ПОДХОДИТ/НЕПОДОХДИТ\",\"reason\":reason}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1840,
+        -256
+      ],
+      "id": "63aa80d7-580b-43d1-97cf-51c3966852a7",
+      "name": "open_aI_requests1",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": "iAAkuvexubI38oo4",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1846618654",
+        "text": "={{ $('get_vac1').item.json.name }}\n\n{{ $json.message.content }}\n\nhttps://hh.ru/vacancy/{{ $('get_vac1').item.json.id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2176,
+        -256
+      ],
+      "id": "3547c346-8c30-4ae5-ae54-9e11e4d74267",
+      "name": "telegram_send_message1",
+      "webhookId": "542f9469-a840-42cd-a36b-3a460991c3ab",
+      "credentials": {
+        "telegramApi": {
+          "id": "f0vus2aVagjbHrKG",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "postgres_if_exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "main": [
+        [
+          {
+            "node": "get_vacansies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_vacansies": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_vac": {
+      "main": [
+        [
+          {
+            "node": "postgres_insert_vac",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Date & Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "postgres_if_exist": {
+      "main": [
+        [
+          {
+            "node": "if_exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_exist": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "get_vac",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "postgres_insert_vac": {
+      "main": [
+        [
+          {
+            "node": "open_aI_requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "open_aI_requests": {
+      "main": [
+        [
+          {
+            "node": "telegram_send_message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "telegram_send_message": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "postgres_insert_employer": {
+      "main": [
+        [
+          {
+            "node": "postgres_insert_vac1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "postgres_if_exist1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time1": {
+      "main": [
+        [
+          {
+            "node": "get_vacansies1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_vacansies1": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_vac1": {
+      "main": [
+        [
+          {
+            "node": "postgres_insert_employer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "postgres_insert_vac1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Date & Time1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "postgres_if_exist1": {
+      "main": [
+        [
+          {
+            "node": "if_exist1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_exist1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "get_vac1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "postgres_insert_vac1": {
+      "main": [
+        [
+          {
+            "node": "open_aI_requests1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "open_aI_requests1": {
+      "main": [
+        [
+          {
+            "node": "telegram_send_message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "telegram_send_message1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b6cbdfdf-8235-4f1f-a7ce-6a0fe1a451fc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "68856d2a5375e877059f8e10880f024c428aa5ac62a98d3245142586fb61633f"
+  },
+  "id": "i9D34n3tH7bvPcbq",
+  "tags": []
+}
